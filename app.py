@@ -1,5 +1,5 @@
 # ==========================================================
-# 🚀 ZEPTO INTELLIGENCE ENGINE (ALL-IN-ONE)
+# ⚡ ZEPTO INTELLIGENCE ENGINE (FINAL DEMO VERSION)
 # ==========================================================
 
 import streamlit as st
@@ -14,14 +14,21 @@ import folium
 from streamlit_folium import folium_static
 
 # -------------------------------
-# CONFIG
+# PAGE CONFIG
 # -------------------------------
-st.set_page_config(page_title="Zepto Intelligence Engine", layout="wide")
+st.set_page_config(
+    page_title="Zepto Intelligence Engine",
+    page_icon="⚡",
+    layout="wide"
+)
 
-st.title("⚡ Zepto Hyperlocal Network Intelligence")
+st.markdown("""
+# ⚡ Zepto Intelligence Engine  
+### Hyperlocal 10-Minute Delivery Optimization System
+""")
 
 # -------------------------------
-# SYNTHETIC DATA GENERATION (SMART)
+# DATA GENERATION (SMART SYNTHETIC)
 # -------------------------------
 @st.cache_data
 def generate_data(n=150):
@@ -58,83 +65,86 @@ st.sidebar.header("⚙️ Zepto Controls")
 avg_speed = st.sidebar.slider("Rider Speed (km/h)", 10, 40, 20)
 traffic = st.sidebar.slider("Traffic Multiplier", 1.0, 2.5, 1.5)
 aov = st.sidebar.slider("Avg Order Value (₹)", 100, 1000, 300)
-margin = st.sidebar.slider("Margin %", 10, 40, 20)/100
+margin = st.sidebar.slider("Margin %", 10, 40, 20) / 100
 burn = st.sidebar.slider("Burn per Order (₹)", 10, 60, 25)
 rider_eff = st.sidebar.slider("Orders per Rider/hr", 2, 10, 5)
+k = st.sidebar.slider("Number of Zepto MFCs", 3, 12, 6)
 
 # -------------------------------
 # FEATURE ENGINEERING
 # -------------------------------
-df["Daily_Orders"] = df["Monthly_Orders"]/30
+df["Daily_Orders"] = df["Monthly_Orders"] / 30
 
-# Zepto-style demand signals
 df["Order_Density"] = df["Monthly_Orders"] / 2
-df["Night_Demand"] = df["Monthly_Orders"] * np.random.uniform(0.2,0.4,len(df))
-df["Repeat"] = np.random.uniform(1.5,3.5,len(df))
+df["Night_Demand"] = df["Monthly_Orders"] * np.random.uniform(0.2, 0.4, len(df))
+df["Repeat"] = np.random.uniform(1.5, 3.5, len(df))
 
 # ZDSI SCORE
 scaler = MinMaxScaler()
-df[["d1","d2","d3"]] = scaler.fit_transform(
-    df[["Order_Density","Night_Demand","Repeat"]]
+df[["d1", "d2", "d3"]] = scaler.fit_transform(
+    df[["Order_Density", "Night_Demand", "Repeat"]]
 )
 
-df["ZDSI"] = 0.4*df["d1"] + 0.3*df["d2"] + 0.3*df["d3"]
+df["ZDSI"] = 0.4 * df["d1"] + 0.3 * df["d2"] + 0.3 * df["d3"]
 
 # -------------------------------
 # CLUSTERING (STORE PLACEMENT)
 # -------------------------------
-k = st.sidebar.slider("Number of Zepto MFCs", 3, 12, 6)
+X = df[["Latitude", "Longitude"]]
 
-X = df[["Latitude","Longitude"]]
-
-kmeans = KMeans(n_clusters=k, n_init=10)
+kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
 df["Cluster"] = kmeans.fit_predict(X, sample_weight=df["Monthly_Orders"])
 
 centers = kmeans.cluster_centers_
 
 # -------------------------------
-# DELIVERY TIME MODEL
+# DELIVERY TIME (FIXED VERSION)
 # -------------------------------
-def calc_time(lat1, lon1, lat2, lon2):
-    dist = np.sqrt((lat1-lat2)**2 + (lon1-lon2)**2) * 111
-    return (dist/avg_speed)*60*traffic
+centers_df = pd.DataFrame(centers, columns=["c_lat", "c_lon"])
 
-times = []
-for i, row in df.iterrows():
-    c = centers[row["Cluster"]]
-    t = calc_time(row["Latitude"], row["Longitude"], c[0], c[1])
-    times.append(t)
+df = df.join(centers_df, on="Cluster")
 
-df["Delivery_Time"] = times
+df["Distance_km"] = np.sqrt(
+    (df["Latitude"] - df["c_lat"])**2 +
+    (df["Longitude"] - df["c_lon"])**2
+) * 111
 
-# SLA FILTER
+df["Delivery_Time"] = (df["Distance_km"] / avg_speed) * 60 * traffic
+
+# SLA CONDITION
 df["Within_SLA"] = df["Delivery_Time"] <= 10
 
 # -------------------------------
 # ECONOMICS
 # -------------------------------
 df["Revenue"] = df["Monthly_Orders"] * aov
-df["Profit"] = df["Revenue"]*margin - df["Monthly_Orders"]*burn
+df["Profit"] = df["Revenue"] * margin - df["Monthly_Orders"] * burn
 
-df["Hourly_Orders"] = df["Daily_Orders"]/24
-df["Riders"] = df["Hourly_Orders"]/rider_eff
+df["Hourly_Orders"] = df["Daily_Orders"] / 24
+df["Riders"] = df["Hourly_Orders"] / rider_eff
 
 # -------------------------------
 # TABS
 # -------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Overview","🗺️ SLA Map","🧠 Optimization","📈 Forecast"
+    "📊 Overview", "🗺️ SLA Map", "🧠 Optimization", "📈 Forecast"
 ])
 
 # -------------------------------
-# TAB 1
+# TAB 1 — OVERVIEW
 # -------------------------------
 with tab1:
-    st.metric("Total Orders", int(df["Monthly_Orders"].sum()))
-    st.metric("SLA Coverage %", round(df["Within_SLA"].mean()*100,2))
-    st.metric("Total Profit ₹", int(df["Profit"].sum()))
+    st.markdown("## 📊 Executive Summary")
     
-    fig = px.scatter(df,
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("📦 Total Orders", f"{int(df['Monthly_Orders'].sum()):,}")
+    col2.metric("⚡ SLA Coverage", f"{df['Within_SLA'].mean()*100:.1f}%")
+    col3.metric("💰 Net Profit", f"₹{int(df['Profit'].sum()):,}")
+    col4.metric("🏍 Riders Needed", f"{int(df['Riders'].sum()):,}")
+
+    fig = px.scatter(
+        df,
         x="Population",
         y="Monthly_Orders",
         color="ZDSI",
@@ -144,42 +154,49 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------
-# TAB 2 (MAP)
+# TAB 2 — MAP
 # -------------------------------
 with tab2:
-    m = folium.Map(location=[18.52,73.85], zoom_start=12)
-    
+    m = folium.Map(location=[18.52, 73.85], zoom_start=12)
+
     for _, r in df.iterrows():
         color = "green" if r["Within_SLA"] else "red"
+
         folium.CircleMarker(
             location=[r["Latitude"], r["Longitude"]],
-            radius=5,
+            radius=6,
             color=color,
-            fill=True
+            fill=True,
+            fill_opacity=0.7,
+            popup=f"""
+            Orders: {int(r['Monthly_Orders'])}<br>
+            Time: {r['Delivery_Time']:.1f} min
+            """
         ).add_to(m)
-    
+
     for c in centers:
         folium.Marker(
             location=[c[0], c[1]],
             icon=folium.Icon(color="blue", icon="cube")
         ).add_to(m)
-    
+
     folium_static(m)
 
 # -------------------------------
-# TAB 3 (OPTIMIZATION)
+# TAB 3 — OPTIMIZATION
 # -------------------------------
 with tab3:
     cluster_stats = df.groupby("Cluster").agg({
-        "Monthly_Orders":"sum",
-        "Revenue":"sum",
-        "Profit":"sum",
-        "Riders":"sum"
+        "Monthly_Orders": "sum",
+        "Revenue": "sum",
+        "Profit": "sum",
+        "Riders": "sum"
     }).reset_index()
-    
+
     st.dataframe(cluster_stats)
-    
-    fig = px.bar(cluster_stats,
+
+    fig = px.bar(
+        cluster_stats,
         x="Cluster",
         y="Profit",
         title="Profit per MFC"
@@ -187,28 +204,45 @@ with tab3:
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------
-# TAB 4 (FORECAST)
+# TAB 4 — FORECAST
 # -------------------------------
 with tab4:
     base = df["Daily_Orders"].sum()
-    
+
     days = 120
     t = np.arange(days)
-    
-    trend = base*(1+0.001*t)
-    season = base*0.2*np.sin(2*np.pi*t/7)
-    noise = np.random.normal(0, base*0.1, days)
-    
+
+    trend = base * (1 + 0.001 * t)
+    season = base * 0.2 * np.sin(2 * np.pi * t / 7)
+    noise = np.random.normal(0, base * 0.1, days)
+
     demand = trend + season + noise
-    
-    X = t.reshape(-1,1)
+
+    X = t.reshape(-1, 1)
     model = LinearRegression()
     model.fit(X, demand)
-    
+
     pred = model.predict(X)
-    
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(y=demand, name="Actual"))
     fig.add_trace(go.Scatter(y=pred, name="Forecast"))
-    
+
     st.plotly_chart(fig, use_container_width=True)
+
+# -------------------------------
+# INSIGHTS PANEL (DEMO GOLD)
+# -------------------------------
+st.markdown("## 🧠 Key Insights")
+
+sla = df["Within_SLA"].mean() * 100
+
+if sla < 70:
+    st.warning("⚠️ SLA coverage is low — increase MFC count or improve speed.")
+else:
+    st.success("✅ SLA coverage is strong.")
+
+if df["Profit"].sum() < 0:
+    st.error("💸 System is burning cash — optimize costs.")
+else:
+    st.success("💰 Network is profitable.")
