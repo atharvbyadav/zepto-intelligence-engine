@@ -1,5 +1,5 @@
 # ==========================================================
-# ⚡ ZEPTO INTELLIGENCE ENGINE (FINAL DEMO VERSION)
+# ⚡ ZEPTO INTELLIGENCE ENGINE (PURPLE THEME FINAL)
 # ==========================================================
 
 import streamlit as st
@@ -22,22 +22,69 @@ st.set_page_config(
     layout="wide"
 )
 
+# -------------------------------
+# PURPLE THEME + BRANDING
+# -------------------------------
 st.markdown("""
-# ⚡ Zepto Intelligence Engine  
-### Hyperlocal 10-Minute Delivery Optimization System
-""")
+<style>
+/* Background */
+.main {
+    background-color: #0E1117;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #1A1C24;
+}
+
+/* Title */
+.zepto-title {
+    font-size: 42px;
+    font-weight: 800;
+    color: #6F2DBD;
+}
+.zepto-sub {
+    font-size: 18px;
+    color: #A78BFA;
+    margin-bottom: 20px;
+}
+
+/* Metrics */
+div[data-testid="stMetric"] {
+    background-color: #1F1B2E;
+    border: 1px solid #6F2DBD;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+/* Buttons */
+.stButton>button {
+    background-color: #6F2DBD;
+    color: white;
+    border-radius: 8px;
+}
+
+/* Sliders */
+.stSlider>div {
+    color: #A78BFA;
+}
+</style>
+
+<div class="zepto-title">⚡ Zepto Intelligence Engine</div>
+<div class="zepto-sub">Hyperlocal 10-Minute Delivery Optimization System</div>
+""", unsafe_allow_html=True)
 
 # -------------------------------
-# DATA GENERATION (SMART SYNTHETIC)
+# DATA GENERATION
 # -------------------------------
 @st.cache_data
 def generate_data(n=150):
     np.random.seed(42)
     
-    lat_center, lon_center = 18.5204, 73.8567  # Pune
+    lat_center, lon_center = 18.5204, 73.8567
     
     data = []
-    for i in range(n):
+    for _ in range(n):
         lat = lat_center + np.random.uniform(-0.08, 0.08)
         lon = lon_center + np.random.uniform(-0.08, 0.08)
         
@@ -48,17 +95,15 @@ def generate_data(n=150):
         
         data.append([lat, lon, population, internet, orders])
     
-    df = pd.DataFrame(data, columns=[
+    return pd.DataFrame(data, columns=[
         "Latitude", "Longitude", "Population",
         "Internet", "Monthly_Orders"
     ])
-    
-    return df
 
 df = generate_data()
 
 # -------------------------------
-# SIDEBAR CONTROLS
+# SIDEBAR
 # -------------------------------
 st.sidebar.header("⚙️ Zepto Controls")
 
@@ -71,15 +116,13 @@ rider_eff = st.sidebar.slider("Orders per Rider/hr", 2, 10, 5)
 k = st.sidebar.slider("Number of Zepto MFCs", 3, 12, 6)
 
 # -------------------------------
-# FEATURE ENGINEERING
+# FEATURES
 # -------------------------------
 df["Daily_Orders"] = df["Monthly_Orders"] / 30
-
 df["Order_Density"] = df["Monthly_Orders"] / 2
 df["Night_Demand"] = df["Monthly_Orders"] * np.random.uniform(0.2, 0.4, len(df))
 df["Repeat"] = np.random.uniform(1.5, 3.5, len(df))
 
-# ZDSI SCORE
 scaler = MinMaxScaler()
 df[["d1", "d2", "d3"]] = scaler.fit_transform(
     df[["Order_Density", "Night_Demand", "Repeat"]]
@@ -88,20 +131,18 @@ df[["d1", "d2", "d3"]] = scaler.fit_transform(
 df["ZDSI"] = 0.4 * df["d1"] + 0.3 * df["d2"] + 0.3 * df["d3"]
 
 # -------------------------------
-# CLUSTERING (STORE PLACEMENT)
+# CLUSTERING
 # -------------------------------
 X = df[["Latitude", "Longitude"]]
 
 kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
 df["Cluster"] = kmeans.fit_predict(X, sample_weight=df["Monthly_Orders"])
-
 centers = kmeans.cluster_centers_
 
 # -------------------------------
-# DELIVERY TIME (FIXED VERSION)
+# DELIVERY TIME (SAFE)
 # -------------------------------
 centers_df = pd.DataFrame(centers, columns=["c_lat", "c_lon"])
-
 df = df.join(centers_df, on="Cluster")
 
 df["Distance_km"] = np.sqrt(
@@ -110,8 +151,6 @@ df["Distance_km"] = np.sqrt(
 ) * 111
 
 df["Delivery_Time"] = (df["Distance_km"] / avg_speed) * 60 * traffic
-
-# SLA CONDITION
 df["Within_SLA"] = df["Delivery_Time"] <= 10
 
 # -------------------------------
@@ -119,7 +158,6 @@ df["Within_SLA"] = df["Delivery_Time"] <= 10
 # -------------------------------
 df["Revenue"] = df["Monthly_Orders"] * aov
 df["Profit"] = df["Revenue"] * margin - df["Monthly_Orders"] * burn
-
 df["Hourly_Orders"] = df["Daily_Orders"] / 24
 df["Riders"] = df["Hourly_Orders"] / rider_eff
 
@@ -131,17 +169,17 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # -------------------------------
-# TAB 1 — OVERVIEW
+# TAB 1
 # -------------------------------
 with tab1:
     st.markdown("## 📊 Executive Summary")
     
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("📦 Total Orders", f"{int(df['Monthly_Orders'].sum()):,}")
+    col1.metric("📦 Orders", f"{int(df['Monthly_Orders'].sum()):,}")
     col2.metric("⚡ SLA Coverage", f"{df['Within_SLA'].mean()*100:.1f}%")
-    col3.metric("💰 Net Profit", f"₹{int(df['Profit'].sum()):,}")
-    col4.metric("🏍 Riders Needed", f"{int(df['Riders'].sum()):,}")
+    col3.metric("💰 Profit", f"₹{int(df['Profit'].sum()):,}")
+    col4.metric("🏍 Riders", f"{int(df['Riders'].sum()):,}")
 
     fig = px.scatter(
         df,
@@ -154,7 +192,7 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------
-# TAB 2 — MAP
+# TAB 2
 # -------------------------------
 with tab2:
     m = folium.Map(location=[18.52, 73.85], zoom_start=12)
@@ -183,7 +221,7 @@ with tab2:
     folium_static(m)
 
 # -------------------------------
-# TAB 3 — OPTIMIZATION
+# TAB 3
 # -------------------------------
 with tab3:
     cluster_stats = df.groupby("Cluster").agg({
@@ -195,16 +233,11 @@ with tab3:
 
     st.dataframe(cluster_stats)
 
-    fig = px.bar(
-        cluster_stats,
-        x="Cluster",
-        y="Profit",
-        title="Profit per MFC"
-    )
+    fig = px.bar(cluster_stats, x="Cluster", y="Profit")
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------
-# TAB 4 — FORECAST
+# TAB 4
 # -------------------------------
 with tab4:
     base = df["Daily_Orders"].sum()
@@ -231,18 +264,18 @@ with tab4:
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------
-# INSIGHTS PANEL (DEMO GOLD)
+# INSIGHTS
 # -------------------------------
 st.markdown("## 🧠 Key Insights")
 
 sla = df["Within_SLA"].mean() * 100
 
 if sla < 70:
-    st.warning("⚠️ SLA coverage is low — increase MFC count or improve speed.")
+    st.warning("⚠️ Low SLA coverage — increase MFC count or speed.")
 else:
-    st.success("✅ SLA coverage is strong.")
+    st.success("✅ Strong SLA coverage.")
 
 if df["Profit"].sum() < 0:
-    st.error("💸 System is burning cash — optimize costs.")
+    st.error("💸 Network is burning cash.")
 else:
     st.success("💰 Network is profitable.")
